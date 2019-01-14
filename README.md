@@ -3,36 +3,42 @@ goの練習がてら試してみたけど、いろいろすっきりしない書
 
 gob.Encodeはbinary.Writeより遅いけど、gob.Decodeはbinary.Readより早い。
 [10000][15000]Int32 で試してみた結果はこちら。
+動作OSは Windows 10 Home (64bit)で、C:ドライブはSSDになっている。
 
 ```
 > go run .\2darraysaveload.go
 2D array data read and write test
 0s
-set data to 2D array
-3.5912164s
-raw: 10000
-column: 15000
-save to binaryfile with binary.Write and bufio
-5.3062375s
-save to binaryfile with gob.Encode and bufio
-6.4260289s
-load from binaryfile with binary.Read and bufio
-3.3522479s
-a:1179337617 1132468563 2094486022 368894420
-b:1179337617 1132468563 2094486022 368894420
-a is same as bbw
-load from binaryfile with gob
-1.9995575s
-a:1179337617 1132468563 2094486022 368894420
-b:1179337617 1132468563 2094486022 368894420
-a is same as bgob
-
+set random data to 2D array A
+3.5654112s
+raw of A: 10000
+column of A: 15000
+======
+save A to binaryfile with binary.Write and bufio
+5.207169s
+save A to binaryfile with gob.Encode
+6.3129723s
+======
+load from binaryfile to Bb with binary.Read and bufio
+3.2170841s
+A is same as Bb
+ A:1179337617 1132468563 2094486022 368894420
+Bb:1179337617 1132468563 2094486022 368894420
+load from binaryfile to Bg with gob.Decode
+1.9140531s
+A is same as Bg
+ A:1179337617 1132468563 2094486022 368894420
+Bg:1179337617 1132468563 2094486022 368894420
 > dir
+
+    ディレクトリ: C:\xxxxxxxx\2darraybinrw
+
 Mode                LastWriteTime         Length Name
 ----                -------------         ------ ----
--a----       2019/01/14      1:25           4811 2darraysaveload.go
--a----       2019/01/14      1:26      600000000 binaryfile.bw
--a----       2019/01/14      1:26      749441712 binaryfile.gob
+-a----       2019/01/15      0:35           5327 2darraysaveload.go
+-a----       2019/01/15      0:35      600000000 binaryfile.bw
+-a----       2019/01/15      0:36      749441712 binaryfile.gob
+-a----       2019/01/15      0:13           1632 README.md
 ```
 
 ファイルサイズでかいな！？

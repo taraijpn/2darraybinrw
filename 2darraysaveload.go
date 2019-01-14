@@ -10,13 +10,20 @@ import (
 	"time"
 )
 
-// 10000,10000 くらいにすると数百メガバイト程度のファイルサイズになる
+// 10000,15000 くらいにすると差ははっきりするが、
+// 数百メガバイト程度のファイルサイズになるので注意
+// （現時点でも 1,000*1,000*4 = 4Mbyte以上にはなる）
 const rmax = 1000
 const cmax = 1000
 
-var a [rmax][cmax]int32
-var bbw [rmax][cmax]int32
-var bgob [rmax][cmax]int32
+// A は元データとなる配列。これをファイルに保存する。
+var A [rmax][cmax]int32
+
+// Bb はファイルから binary.Read で取ったデータを保存する配列
+var Bb [rmax][cmax]int32
+
+// Bg はファイルから gob.Decode で取ったデータを保存する配列
+var Bg [rmax][cmax]int32
 
 func main() {
 
@@ -32,11 +39,11 @@ func main() {
 
 	start = time.Now()
 
-	fmt.Println("set data to 2D array")
+	fmt.Println("set random data to 2D array A")
 
 	for r := 0; r < rmax; r++ {
 		for c := 0; c < cmax; c++ {
-			a[r][c] = rand.Int31()
+			A[r][c] = rand.Int31()
 		}
 	}
 
@@ -45,35 +52,36 @@ func main() {
 	fmt.Println(elapsed)
 
 	// 配列サイズを測っておく
-	fmt.Println("raw:", len(a))
-	fmt.Println("column:", len(a[0]))
+	fmt.Println("raw of A:", len(A))
+	fmt.Println("column of A:", len(A[0]))
+	fmt.Println("======")
 
 	// 1. 二次元配列をバイナリファイルとして保存 binary.Write and bufio
 
-	file, err := os.Create("./binaryfile.bw")
+	filebW, err := os.Create("./binaryfile.bw")
 	if err != nil {
 		fmt.Println("file couldn't open")
 		panic(err)
 	}
-	defer file.Close()
+	defer filebW.Close()
 
-	fmt.Println("save to binaryfile with binary.Write and bufio")
+	fmt.Println("save A to binaryfile with binary.Write and bufio")
 
 	start = time.Now()
 
 	// 本当はbytes で書きたかったんだけどやり方がよくわからなかったので
 	// bufio で書いてしまう作戦。
-	bufW := bufio.NewWriter(file)
+	bufbW := bufio.NewWriter(filebW)
 
 	// 書き込みバッファに書く
-	err = binary.Write(bufW, binary.LittleEndian, a)
+	err = binary.Write(bufbW, binary.LittleEndian, A)
 	if err != nil {
 		fmt.Println("bufio.Write failed:", err)
 		panic(err)
 	}
 
 	// file close
-	file.Close()
+	filebW.Close()
 
 	t = time.Now()
 	elapsed = t.Sub(start)
@@ -81,44 +89,47 @@ func main() {
 
 	// 2. 二次元配列をバイナリファイルとして保存 gob
 
-	filegob, err := os.Create("./binaryfile.gob")
+	filegW, err := os.Create("./binaryfile.gob")
 	if err != nil {
 		fmt.Println("file couldn't open", err)
 		panic(err)
 	}
-	defer file.Close()
+	defer filegW.Close()
 
-	fmt.Println("save to binaryfile with gob.Encode and bufio")
+	fmt.Println("save A to binaryfile with gob.Encode")
 
 	start = time.Now()
 
 	// io.Writer に向けたエンコーダーを作る。io.Writerは書き込み可として開いたファイル
-	encgob := gob.NewEncoder(filegob)
+	encgob := gob.NewEncoder(filegW)
 
-	// Encodeメソッドに送り付けたい変数 a を与える。
+	// Encodeメソッドに送り付けたい変数 A を与える。
 	// この場合はファイルに対して送り付けられる。
-	if err = encgob.Encode(a); err != nil {
+	if err = encgob.Encode(A); err != nil {
 		fmt.Println("data couldn't Encode", err)
 		panic(err)
 	}
 
 	// file close
-	filegob.Close()
+	filegW.Close()
 
 	t = time.Now()
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
 
-	// 3. バイナリファイルから二次元配列に読み込み binary.Read and bufio
+	//
+	fmt.Println("======")
 
-	fileR, err := os.Open("./binaryfile.bw")
+	// 3. バイナリファイルから二次元配列 Bb に読み込み binary.Read and bufio
+
+	filebR, err := os.Open("./binaryfile.bw")
 	if err != nil {
 		fmt.Println("file couldn't open", err)
 		panic(err)
 	}
-	defer file.Close()
+	defer filebR.Close()
 
-	fmt.Println("load from binaryfile with binary.Read and bufio")
+	fmt.Println("load from binaryfile to Bb with binary.Read and bufio")
 
 	start = time.Now()
 
@@ -126,66 +137,70 @@ func main() {
 	// bufio で読んでしまう作戦。
 	// bufR := new(bytes.Buffer)
 
-	bufR := bufio.NewReader(fileR)
+	bufbR := bufio.NewReader(filebR)
 
 	// binary.Read で　ファイルに紐づけたバッファから 変数に読み込む。
 	// 変数はポインタで与える
-	err = binary.Read(bufR, binary.LittleEndian, &bbw)
+	err = binary.Read(bufbR, binary.LittleEndian, &Bb)
 	if err != nil {
 		fmt.Println("binary.Read failed:", err)
 		panic(err)
 	}
 
+	filebR.Close()
+
 	t = time.Now()
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
 
 	// 配列比較
-	fmt.Printf("a:%d %d %d %d\n", a[0][0], a[0][cmax-1], a[rmax-1][0], a[rmax-1][cmax-1])
-	fmt.Printf("b:%d %d %d %d\n", bbw[0][0], bbw[0][cmax-1], bbw[rmax-1][0], bbw[rmax-1][cmax-1])
-
-	if a == bbw {
-		fmt.Printf("a is same as bbw\n")
+	if A == Bb {
+		fmt.Println("A is same as Bb")
 	} else {
-		fmt.Printf("a is not same as bbw\n")
+		fmt.Println("A is not same as Bb")
 	}
+
+	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("Bb:%d %d %d %d\n", Bb[0][0], Bb[0][cmax-1], Bb[rmax-1][0], Bb[rmax-1][cmax-1])
 
 	// 4. バイナリファイルから二次元配列に読み込み gob
 
-	filegobR, err := os.Open("./binaryfile.gob")
+	filegR, err := os.Open("./binaryfile.gob")
 	if err != nil {
 		fmt.Println("file couldn't open", err)
 		panic(err)
 	}
-	defer file.Close()
+	defer filegR.Close()
 
-	fmt.Println("load from binaryfile with gob")
+	fmt.Println("load from binaryfile to Bg with gob.Decode")
 
 	start = time.Now()
 
 	// io.Writer から受けるデコーダーを作る。io.Writerは開いたファイルのことになる
-	decgob := gob.NewDecoder(filegobR)
+	decgob := gob.NewDecoder(filegR)
 
 	// Decodeメソッドに受け取りたい変数のポインタを与える。
-	// 送られてくるデータ（ファイル）と同じ形、サイズの変数じゃないとエラーになる。賢い。
-	if err = decgob.Decode(&bgob); err != nil {
+	// 送られてくる（ファイルの中に書き込まれている）データと同じ形、
+	// サイズの変数じゃないとエラーになる。賢い。
+	if err = decgob.Decode(&Bg); err != nil {
 		fmt.Println("decgob.Decode failed:", err)
 		panic(err)
 	}
+
+	filegR.Close()
 
 	t = time.Now()
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
 
 	// 配列比較
-	fmt.Printf("a:%d %d %d %d\n", a[0][0], a[0][cmax-1], a[rmax-1][0], a[rmax-1][cmax-1])
-	fmt.Printf("b:%d %d %d %d\n", bgob[0][0], bgob[0][cmax-1], bgob[rmax-1][0], bgob[rmax-1][cmax-1])
-
-	if a == bgob {
-		fmt.Printf("a is same as bgob\n")
-
+	if A == Bg {
+		fmt.Println("A is same as Bg")
 	} else {
-		fmt.Printf("a is not same as bgob\n")
+		fmt.Println("A is not same as Bg")
 	}
+
+	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("Bg:%d %d %d %d\n", Bg[0][0], Bg[0][cmax-1], Bg[rmax-1][0], Bg[rmax-1][cmax-1])
 
 }
