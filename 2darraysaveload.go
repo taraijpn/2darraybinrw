@@ -65,7 +65,7 @@ func main() {
 	}
 	defer filebW.Close()
 
-	fmt.Println("save A to binaryfile with binary.Write and bufio")
+	fmt.Println("write A to binaryfile with binary.Write and bufio")
 
 	start = time.Now()
 
@@ -80,9 +80,6 @@ func main() {
 		panic(err)
 	}
 
-	// file close
-	filebW.Close()
-
 	t = time.Now()
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
@@ -96,7 +93,7 @@ func main() {
 	}
 	defer filegW.Close()
 
-	fmt.Println("save A to binaryfile with gob.Encode")
+	fmt.Println("write A to binaryfile with gob.Encode")
 
 	start = time.Now()
 
@@ -109,9 +106,6 @@ func main() {
 		fmt.Println("data couldn't Encode", err)
 		panic(err)
 	}
-
-	// file close
-	filegW.Close()
 
 	t = time.Now()
 	elapsed = t.Sub(start)
@@ -129,7 +123,7 @@ func main() {
 	}
 	defer filebR.Close()
 
-	fmt.Println("load from binaryfile to Bb with binary.Read and bufio")
+	fmt.Println("read from binaryfile to Bb with binary.Read and bufio")
 
 	start = time.Now()
 
@@ -146,8 +140,6 @@ func main() {
 		fmt.Println("binary.Read failed:", err)
 		panic(err)
 	}
-
-	filebR.Close()
 
 	t = time.Now()
 	elapsed = t.Sub(start)
@@ -172,7 +164,7 @@ func main() {
 	}
 	defer filegR.Close()
 
-	fmt.Println("load from binaryfile to Bg with gob.Decode")
+	fmt.Println("read from binaryfile to Bg with gob.Decode")
 
 	start = time.Now()
 
@@ -187,11 +179,11 @@ func main() {
 		panic(err)
 	}
 
-	filegR.Close()
-
 	t = time.Now()
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
+
+	// Bg[rmax-1][cmax-1] = 111111
 
 	// 配列比較
 	if A == Bg {
