@@ -20,11 +20,8 @@ const cmax = 1000
 // A は元データとなる配列。これをファイルに保存する。
 var A [rmax][cmax]int32
 
-// Bb はファイルから binary.Read で取ったデータを保存する配列
-var Bb [rmax][cmax]int32
-
-// Bg はファイルから gob.Decode で取ったデータを保存する配列
-var Bg [rmax][cmax]int32
+// B はファイルから取ったデータを保存する配列
+var B [rmax][cmax]int32
 
 func main() {
 
@@ -57,14 +54,13 @@ func main() {
 	fmt.Println("column of A:", len(A[0]))
 	fmt.Println("======")
 
-	// 1. 二次元配列をバイナリファイルとして保存 binary.Write and bufio
+	// 1-1. 二次元配列をバイナリファイルとして保存 binary.Write and bufio
 
 	filebW, err := os.Create("./binaryfile.bw")
 	if err != nil {
 		fmt.Println("file couldn't open")
 		panic(err)
 	}
-	defer filebW.Close()
 
 	fmt.Println("write A to binaryfile with binary.Write and bufio")
 
@@ -80,21 +76,80 @@ func main() {
 		fmt.Println("bufio.Write failed:", err)
 		panic(err)
 	}
+	filebW.Close()
 
 	t = time.Now()
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
 
-	// 2. 二次元配列をバイナリファイルとして保存 gob
+	// 1-2. バイナリファイルから二次元配列 B に読み込み binary.Read and bufio
+	fmt.Println("set random data to 2D array B")
+	for r := 0; r < rmax; r++ {
+		for c := 0; c < cmax; c++ {
+			B[r][c] = rand.Int31()
+		}
+	}
+
+	// 配列比較
+	if A == B {
+		fmt.Println("A is same as B")
+	} else {
+		fmt.Println("A is not same as B")
+	}
+
+	fmt.Printf("A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("B:%d %d %d %d\n", B[0][0], B[0][cmax-1], B[rmax-1][0], B[rmax-1][cmax-1])
+
+	filebR, err := os.Open("./binaryfile.bw")
+	if err != nil {
+		fmt.Println("file couldn't open", err)
+		panic(err)
+	}
+	defer filebR.Close()
+
+	fmt.Println("read from binaryfile to B with binary.Read and bufio")
+
+	start = time.Now()
+
+	// 本当はbytes で読みたかったんだけどやり方がよくわからなかったので
+	// bufio で読んでしまう作戦。
+	// bufR := new(bytes.Buffer)
+
+	bufbR := bufio.NewReader(filebR)
+
+	// binary.Read で　ファイルに紐づけたバッファから 変数に読み込む。
+	// 変数はポインタで与える
+	err = binary.Read(bufbR, binary.LittleEndian, &B)
+	if err != nil {
+		fmt.Println("binary.Read failed:", err)
+		panic(err)
+	}
+
+	t = time.Now()
+	elapsed = t.Sub(start)
+	fmt.Println(elapsed)
+
+	// 配列比較
+	if A == B {
+		fmt.Println("A is same as B")
+	} else {
+		fmt.Println("A is not same as B")
+	}
+
+	fmt.Printf("A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("B:%d %d %d %d\n", B[0][0], B[0][cmax-1], B[rmax-1][0], B[rmax-1][cmax-1])
+
+	fmt.Println("======")
+
+	// 2-1. 二次元配列をバイナリファイルとして保存 gob
 
 	filegW, err := os.Create("./binaryfile.gob")
 	if err != nil {
 		fmt.Println("file couldn't open", err)
 		panic(err)
 	}
-	defer filegW.Close()
 
-	fmt.Println("write A to binary gob file with gob.Encode")
+	fmt.Println("write A to binary gob file with gob.Encode()")
 
 	start = time.Now()
 
@@ -107,59 +162,29 @@ func main() {
 		fmt.Println("data couldn't Encode", err)
 		panic(err)
 	}
+	filegW.Close()
 
 	t = time.Now()
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
 
-	//
-	fmt.Println("======")
-
-	// 3. バイナリファイルから二次元配列 Bb に読み込み binary.Read and bufio
-
-	filebR, err := os.Open("./binaryfile.bw")
-	if err != nil {
-		fmt.Println("file couldn't open", err)
-		panic(err)
+	// 2-2. バイナリファイルから二次元配列に読み込み gob
+	fmt.Println("set random data to 2D array B")
+	for r := 0; r < rmax; r++ {
+		for c := 0; c < cmax; c++ {
+			B[r][c] = rand.Int31()
+		}
 	}
-	defer filebR.Close()
-
-	fmt.Println("read from binaryfile to Bb with binary.Read and bufio")
-
-	start = time.Now()
-
-	// 本当はbytes で読みたかったんだけどやり方がよくわからなかったので
-	// bufio で読んでしまう作戦。
-	// bufR := new(bytes.Buffer)
-
-	bufbR := bufio.NewReader(filebR)
-
-	// binary.Read で　ファイルに紐づけたバッファから 変数に読み込む。
-	// 変数はポインタで与える
-	err = binary.Read(bufbR, binary.LittleEndian, &Bb)
-	if err != nil {
-		fmt.Println("binary.Read failed:", err)
-		panic(err)
-	}
-
-	t = time.Now()
-	elapsed = t.Sub(start)
-	fmt.Println(elapsed)
 
 	// 配列比較
-	if A == Bb {
-		fmt.Println("A is same as Bb")
+	if A == B {
+		fmt.Println("A is same as B")
 	} else {
-		fmt.Println("A is not same as Bb")
+		fmt.Println("A is not same as B")
 	}
 
-	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
-	fmt.Printf("Bb:%d %d %d %d\n", Bb[0][0], Bb[0][cmax-1], Bb[rmax-1][0], Bb[rmax-1][cmax-1])
-
-	//
-	fmt.Println("======")
-
-	// 4. バイナリファイルから二次元配列に読み込み gob
+	fmt.Printf("A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("B:%d %d %d %d\n", B[0][0], B[0][cmax-1], B[rmax-1][0], B[rmax-1][cmax-1])
 
 	filegR, err := os.Open("./binaryfile.gob")
 	if err != nil {
@@ -168,7 +193,7 @@ func main() {
 	}
 	defer filegR.Close()
 
-	fmt.Println("read from binary gob file to Bg with gob.Decode")
+	fmt.Println("read from binary gob file to B with gob.Decode")
 
 	start = time.Now()
 
@@ -178,7 +203,7 @@ func main() {
 	// Decodeメソッドに受け取りたい変数のポインタを与える。
 	// 送られてくる（ファイルの中に書き込まれている）データと同じ形、
 	// サイズの変数じゃないとエラーになる。賢い。
-	if err = decgob.Decode(&Bg); err != nil {
+	if err = decgob.Decode(&B); err != nil {
 		fmt.Println("decgob.Decode failed:", err)
 		panic(err)
 	}
@@ -187,52 +212,75 @@ func main() {
 	elapsed = t.Sub(start)
 	fmt.Println(elapsed)
 
-	// Bg[rmax-1][cmax-1] = 111111
-
 	// 配列比較
-	if A == Bg {
-		fmt.Println("A is same as Bg")
+	if A == B {
+		fmt.Println("A is same as B")
 	} else {
-		fmt.Println("A is not same as Bg")
+		fmt.Println("A is not same as B")
 	}
 
-	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
-	fmt.Printf("Bg:%d %d %d %d\n", Bg[0][0], Bg[0][cmax-1], Bg[rmax-1][0], Bg[rmax-1][cmax-1])
+	fmt.Printf("A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("B:%d %d %d %d\n", B[0][0], B[0][cmax-1], B[rmax-1][0], B[rmax-1][cmax-1])
 
-	//
 	fmt.Println("======")
 
-	// 5. file.Readで読み込み時のエンディアンチェックなどを回避する作戦。
+	// 3-1. 二次元配列をバイナリファイルとして保存
+	// file.Read/Write で多次元配列をバイト列として扱う作戦
 	// https://bleu48.hatenablog.com/entry/2019/01/19/185959
 
-	fmt.Println("reset random data to 2D array bg")
+	filefW, err := os.Create("./binaryfile.fw")
+	if err != nil {
+		fmt.Println("file couldn't open")
+		panic(err)
+	}
 
+	fmt.Println("write A to binaryfile with file.Write()")
+
+	start = time.Now()
+
+	// 書き込みたい配列のポインタをバイト列のポインタとしてキャストした値を得る
+	ptrA := (*[unsafe.Sizeof(A)]byte)(unsafe.Pointer(&A))[:][:]
+
+	// 書き込みたい配列をバイト列としてポインタで与える
+	_, err = filefW.Write(ptrA)
+	if err != nil {
+		fmt.Println("fileB.Write failed:", err)
+		panic(err)
+	}
+	filefW.Close()
+
+	t = time.Now()
+	elapsed = t.Sub(start)
+	fmt.Println(elapsed)
+
+	// 3-2. file.Readで読み込み時のエンディアンチェックなどを回避する作戦。
+	fmt.Println("set random data to 2D array B")
 	for r := 0; r < rmax; r++ {
 		for c := 0; c < cmax; c++ {
-			Bb[r][c] = rand.Int31()
+			B[r][c] = rand.Int31()
 		}
 	}
 
-	if A == Bb {
-		fmt.Println("A is same as Bb")
+	// 配列比較
+	if A == B {
+		fmt.Println("A is same as B")
 	} else {
-		fmt.Println("A is not same as Bb")
+		fmt.Println("A is not same as B")
 	}
 
-	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
-	fmt.Printf("Bb:%d %d %d %d\n", Bb[0][0], Bb[0][cmax-1], Bb[rmax-1][0], Bb[rmax-1][cmax-1])
+	fmt.Printf("A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("B:%d %d %d %d\n", B[0][0], B[0][cmax-1], B[rmax-1][0], B[rmax-1][cmax-1])
 
 	// binary.Write しているファイルを開きなおす
-	filebR.Close()
-	filebR, err = os.Open("./binaryfile.bw")
+	filefR, err := os.Open("./binaryfile.fw")
 	if err != nil {
 		fmt.Println("file couldn't open", err)
 		panic(err)
 	}
-	defer filebR.Close()
+	defer filefR.Close()
 
 	// いちおうファイルサイズくらいは見ておこうと思った
-	finfo, ferr := filebR.Stat()
+	finfo, ferr := filefR.Stat()
 	if ferr != nil {
 		fmt.Println("couldn't get file.Stat", ferr)
 		panic(ferr)
@@ -240,18 +288,18 @@ func main() {
 
 	// ファイルサイズを表示
 	fmt.Println("binaryfilesize:", finfo.Size())
-	fmt.Println("arraysize:     ", unsafe.Sizeof(Bb))
+	fmt.Println("arraysize:     ", unsafe.Sizeof(B))
 
 	// ファイルを読む
-	fmt.Println("read from binaryfile to Bb with file.Read and unsafe pointer casting")
+	fmt.Println("read from binaryfile to B with file.Read and unsafe pointer casting")
 
 	start = time.Now()
 
-	// 読み込み先の配列のポインタをバイナリ列のポインタとしてキャストした値を得る
-	ptrbR := (*[unsafe.Sizeof(Bb)]byte)(unsafe.Pointer(&Bb))[:][:]
+	// 読み込み先の配列のポインタをバイト列のポインタとしてキャストした値を得る
+	ptrB := (*[unsafe.Sizeof(B)]byte)(unsafe.Pointer(&B))[:][:]
 
-	// 格納する配列をバイナリ列としてポインタで与える
-	_, err = filebR.Read(ptrbR)
+	// 格納する配列をバイト列としてポインタで与える
+	_, err = filefR.Read(ptrB)
 	if err != nil {
 		fmt.Println("filebR.Read failed:", err)
 		panic(err)
@@ -262,13 +310,13 @@ func main() {
 	fmt.Println(elapsed)
 
 	// 配列比較
-	if A == Bb {
-		fmt.Println("A is same as Bb")
+	if A == B {
+		fmt.Println("A is same as B")
 	} else {
-		fmt.Println("A is not same as Bb")
+		fmt.Println("A is not same as B")
 	}
 
-	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
-	fmt.Printf("Bb:%d %d %d %d\n", Bb[0][0], Bb[0][cmax-1], Bb[rmax-1][0], Bb[rmax-1][cmax-1])
+	fmt.Printf("A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("B:%d %d %d %d\n", B[0][0], B[0][cmax-1], B[rmax-1][0], B[rmax-1][cmax-1])
 
 }
