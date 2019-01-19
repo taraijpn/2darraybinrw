@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"time"
+	"unsafe"
 )
 
 // 10000,15000 くらいにすると差ははっきりするが、
@@ -93,7 +94,7 @@ func main() {
 	}
 	defer filegW.Close()
 
-	fmt.Println("write A to binaryfile with gob.Encode")
+	fmt.Println("write A to binary gob file with gob.Encode")
 
 	start = time.Now()
 
@@ -155,6 +156,9 @@ func main() {
 	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
 	fmt.Printf("Bb:%d %d %d %d\n", Bb[0][0], Bb[0][cmax-1], Bb[rmax-1][0], Bb[rmax-1][cmax-1])
 
+	//
+	fmt.Println("======")
+
 	// 4. バイナリファイルから二次元配列に読み込み gob
 
 	filegR, err := os.Open("./binaryfile.gob")
@@ -164,7 +168,7 @@ func main() {
 	}
 	defer filegR.Close()
 
-	fmt.Println("read from binaryfile to Bg with gob.Decode")
+	fmt.Println("read from binary gob file to Bg with gob.Decode")
 
 	start = time.Now()
 
@@ -194,5 +198,77 @@ func main() {
 
 	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
 	fmt.Printf("Bg:%d %d %d %d\n", Bg[0][0], Bg[0][cmax-1], Bg[rmax-1][0], Bg[rmax-1][cmax-1])
+
+	//
+	fmt.Println("======")
+
+	// 5. file.Readで読み込み時のエンディアンチェックなどを回避する作戦。
+	// https://bleu48.hatenablog.com/entry/2019/01/19/185959
+
+	fmt.Println("reset random data to 2D array bg")
+
+	for r := 0; r < rmax; r++ {
+		for c := 0; c < cmax; c++ {
+			Bb[r][c] = rand.Int31()
+		}
+	}
+
+	if A == Bb {
+		fmt.Println("A is same as Bb")
+	} else {
+		fmt.Println("A is not same as Bb")
+	}
+
+	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("Bb:%d %d %d %d\n", Bb[0][0], Bb[0][cmax-1], Bb[rmax-1][0], Bb[rmax-1][cmax-1])
+
+	// binary.Write しているファイルを開きなおす
+	filebR.Close()
+	filebR, err = os.Open("./binaryfile.bw")
+	if err != nil {
+		fmt.Println("file couldn't open", err)
+		panic(err)
+	}
+	defer filebR.Close()
+
+	// いちおうファイルサイズくらいは見ておこうと思った
+	finfo, ferr := filebR.Stat()
+	if ferr != nil {
+		fmt.Println("couldn't get file.Stat", ferr)
+		panic(ferr)
+	}
+
+	// ファイルサイズを表示
+	fmt.Println("binaryfilesize:", finfo.Size())
+	fmt.Println("arraysize:     ", unsafe.Sizeof(Bb))
+
+	// ファイルを読む
+	fmt.Println("read from binaryfile to Bb with file.Read and unsafe pointer casting")
+
+	start = time.Now()
+
+	// 読み込み先の配列のポインタをバイナリ列のポインタとしてキャストした値を得る
+	ptrbR := (*[unsafe.Sizeof(Bb)]byte)(unsafe.Pointer(&Bb))[:][:]
+
+	// 格納する配列をバイナリ列としてポインタで与える
+	_, err = filebR.Read(ptrbR)
+	if err != nil {
+		fmt.Println("filebR.Read failed:", err)
+		panic(err)
+	}
+
+	t = time.Now()
+	elapsed = t.Sub(start)
+	fmt.Println(elapsed)
+
+	// 配列比較
+	if A == Bb {
+		fmt.Println("A is same as Bb")
+	} else {
+		fmt.Println("A is not same as Bb")
+	}
+
+	fmt.Printf(" A:%d %d %d %d\n", A[0][0], A[0][cmax-1], A[rmax-1][0], A[rmax-1][cmax-1])
+	fmt.Printf("Bb:%d %d %d %d\n", Bb[0][0], Bb[0][cmax-1], Bb[rmax-1][0], Bb[rmax-1][cmax-1])
 
 }
